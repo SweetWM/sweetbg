@@ -11,7 +11,7 @@ project(
 
 add_project_arguments(
 	'-DSWEETBG_VERSION="' + meson.project_version() + '"',
-	# Linux-only daemon; enable memfd_create and the POSIX surface
+	# Expose memfd_create and the POSIX interfaces on Linux
 	'-D_GNU_SOURCE',
 	language: 'c',
 )
@@ -78,6 +78,8 @@ executable(
 executable(
 	'sweetbgd',
 	'src/sweetbgd.c',
+	'src/support/client_binary.c',
+	'src/support/termination.c',
 	'src/wayland/registry.c',
 	'src/wayland/output.c',
 	'src/wayland/surface.c',

@@ -10,8 +10,9 @@ sweetbgd - Wayland wallpaper daemon
 
 # DESCRIPTION
 
-*sweetbgd* manages wallpapers on Wayland compositors that support
-wlr-layer-shell. It reads *sweetbg*(5) and accepts commands from *sweetbg*(1).
+*sweetbgd* manages wallpapers on Linux and FreeBSD Wayland compositors that
+support wlr-layer-shell. It reads *sweetbg*(5) and accepts commands from
+*sweetbg*(1).
 
 Run it from your compositor or session startup, or enable the systemd user
 service:

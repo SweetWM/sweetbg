@@ -43,6 +43,8 @@ static bool is_regular(const char *full, const struct dirent *entry) {
 	if (entry->d_type != DT_UNKNOWN && entry->d_type != DT_LNK) {
 		return false;
 	}
+#else
+	(void)entry;
 #endif
 	struct stat st;
 	return stat(full, &st) == 0 && S_ISREG(st.st_mode);
