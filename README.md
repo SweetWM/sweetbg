@@ -2,6 +2,8 @@
 
 Sweetbg is a small, lightweight and static Wayland wallpaper daemon
 
+Runs on Linux and FreeBSD with a compositor that supports `wlr-layer-shell`.
+
 <a href="https://github.com/user-attachments/assets/1af9d909-ac15-4d44-8280-b08ac0857bb2" target="_blank">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/1af9d909-ac15-4d44-8280-b08ac0857bb2" />
@@ -54,6 +56,16 @@ Dependencies:
 - Meson, Ninja, and a C11 compiler
 - `scdoc` for man pages
 - `systemd` for the optional user service
+
+On FreeBSD, install the build dependencies first:
+
+```sh
+sudo pkg install meson ninja pkgconf wayland wayland-protocols png jpeg-turbo webp scdoc
+```
+
+Then build from source using the commands above. Start `sweetbgd` from your
+compositor's startup configuration. The systemd service is optional and is
+skipped when systemd is unavailable.
 
 Binaries: `sweetbgd`: daemon, `sweetbg`: command-line client
 

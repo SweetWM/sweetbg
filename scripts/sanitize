@@ -12,7 +12,12 @@ fi
 ninja -C build-asan
 
 if meson test -C build-asan --list >/dev/null 2>&1; then
-	ASAN_OPTIONS=${ASAN_OPTIONS:-detect_leaks=1} \
+	# LeakSanitizer is unavailable in FreeBSD's AddressSanitizer runtime
+	case "$(uname -s)" in
+	FreeBSD) asan_defaults=detect_leaks=0 ;;
+	*) asan_defaults=detect_leaks=1 ;;
+	esac
+	ASAN_OPTIONS=${ASAN_OPTIONS:-$asan_defaults} \
 	UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1} \
 	meson test -C build-asan --print-errorlogs
 else

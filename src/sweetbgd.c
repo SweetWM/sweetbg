@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/signalfd.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wayland-client.h>
@@ -17,9 +16,13 @@
 #include "ipc/protocol.h"
 #include "ipc/server.h"
 #include "query/json.h"
+#include "support/client_binary.h"
+#include "support/termination.h"
 #include "wayland/output.h"
 #include "wayland/registry.h"
 #include "wayland/surface.h"
+
+extern char **environ;
 
 struct palette {
 	uint32_t colors[SWEETBG_MAX_PALETTE];
@@ -49,12 +52,6 @@ struct daemon {
 static void compact_assignments(struct daemon *daemon);
 static bool load_config(
 	struct daemon *daemon, bool strict, char *message, size_t message_size);
-
-static void term_signal_set(sigset_t *mask) {
-	sigemptyset(mask);
-	sigaddset(mask, SIGINT);
-	sigaddset(mask, SIGTERM);
-}
 
 static struct assignment *assignment_for(
 	struct daemon *daemon, const char *name) {
@@ -252,33 +249,13 @@ static void set_effective_palette(struct daemon *daemon, const char *name,
 	}
 }
 
-static void client_binary(char *out, size_t out_size) {
-	ssize_t n = readlink("/proc/self/exe", out, out_size - 1);
-	if (n > 0 && (size_t)n < out_size) {
-		// NOLINTNEXTLINE(clang-analyzer-security.ArrayBound)
-		out[n] = '\0';
-		char *slash = strrchr(out, '/');
-		if (slash != NULL) {
-			size_t dir_len = (size_t)(slash - out) + 1;
-			const char *bin = "sweetbg";
-			if (dir_len + strlen(bin) + 1 <= out_size) {
-				memcpy(out + dir_len, bin, strlen(bin) + 1);
-				if (access(out, X_OK) == 0) {
-					return;
-				}
-			}
-		}
-	}
-	snprintf(out, out_size, "sweetbg");
-}
-
 static void spawn_prepare_set(
 	const char *path, const char *const *names, size_t name_count) {
 	if (name_count == 0) {
 		return;
 	}
 	char bin[PATH_MAX];
-	client_binary(bin, sizeof(bin));
+	sweetbg_client_binary(bin, sizeof(bin));
 	char *args[SWEETBG_MAX_OUTPUTS + 4] = {
 		"sweetbg",
 		"prepare-set",
@@ -1104,27 +1081,6 @@ static uint8_t dispatch(void *data, uint8_t command, const uint8_t *payload,
 	}
 }
 
-static int install_signal_handling(void) {
-	struct sigaction chld;
-	memset(&chld, 0, sizeof(chld));
-	chld.sa_handler = SIG_IGN;
-	sigaction(SIGCHLD, &chld, NULL);
-
-	sigset_t mask;
-	term_signal_set(&mask);
-	if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
-		fprintf(stderr, "sweetbgd: cannot block signals: %s\n",
-			strerror(errno));
-		return -1;
-	}
-	int fd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
-	if (fd < 0) {
-		fprintf(stderr, "sweetbgd: cannot create signalfd: %s\n",
-			strerror(errno));
-	}
-	return fd;
-}
-
 static bool report_wayland_disconnect(struct wl_display *display) {
 	int err = wl_display_get_error(display);
 	if (err == EPROTO) {
@@ -1198,10 +1154,11 @@ static bool run_loop(
 		}
 
 		if ((fds[2].revents & POLLIN) != 0) {
-			struct signalfd_siginfo info;
-			ssize_t n = read(signal_fd, &info, sizeof(info));
-			(void)n;
 			break;
+		}
+		if ((fds[2].revents & bad) != 0) {
+			fprintf(stderr, "sweetbgd: signal fd poll failure\n");
+			return false;
 		}
 
 		ensure_surfaces(daemon->reg);
@@ -1373,8 +1330,11 @@ static int run(void) {
 		return 1;
 	}
 
-	int signal_fd = install_signal_handling();
+	int signal_fd = sweetbg_termination_fd();
 	if (signal_fd < 0) {
+		fprintf(stderr,
+			"sweetbgd: cannot watch termination signals: %s\n",
+			strerror(errno));
 		wl_display_disconnect(display);
 		sweetbg_ipc_server_finish(&ipc);
 		return 1;
