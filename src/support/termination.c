@@ -15,6 +15,7 @@
 
 #ifdef __FreeBSD__
 static int signal_queue(void) {
+	int saved_errno;
 	int fd = kqueue();
 	if (fd < 0) {
 		return -1;
@@ -40,12 +41,11 @@ static int signal_queue(void) {
 	}
 	return fd;
 
-fail: {
-	int saved_errno = errno;
+fail:
+	saved_errno = errno;
 	close(fd);
 	errno = saved_errno;
 	return -1;
-}
 }
 #endif
 

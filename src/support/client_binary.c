@@ -17,6 +17,7 @@ static bool executable_path(char *out, size_t out_size) {
 	return sysctl(mib, 4, out, &length, NULL, 0) == 0 && length > 0 &&
 	       length <= out_size && out[length - 1] == '\0';
 #else
+	// The kernel supplies this fixed link; validate length and add the NUL
 	ssize_t length = readlink("/proc/self/exe", out, out_size - 1);
 	if (length <= 0 || (size_t)length >= out_size - 1) {
 		return false;
@@ -35,12 +36,11 @@ void sweetbg_client_binary(char *out, size_t out_size) {
 		char *slash = strrchr(out, '/');
 		if (slash != NULL) {
 			size_t dir_len = (size_t)(slash - out) + 1;
-			const char *bin = "sweetbg";
-			if (dir_len + strlen(bin) + 1 <= out_size) {
-				memcpy(out + dir_len, bin, strlen(bin) + 1);
-				if (access(out, X_OK) == 0) {
-					return;
-				}
+			const char bin[] = "sweetbg";
+			if (out_size >= sizeof(bin) &&
+				dir_len <= out_size - sizeof(bin)) {
+				memcpy(out + dir_len, bin, sizeof(bin));
+				return;
 			}
 		}
 	}

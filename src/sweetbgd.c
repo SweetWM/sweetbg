@@ -256,6 +256,7 @@ static void spawn_prepare_set(
 	}
 	char bin[PATH_MAX];
 	sweetbg_client_binary(bin, sizeof(bin));
+	const char *executable = bin;
 	char *args[SWEETBG_MAX_OUTPUTS + 4] = {
 		"sweetbg",
 		"prepare-set",
@@ -294,11 +295,17 @@ static void spawn_prepare_set(
 	}
 	pid_t pid;
 	if (rc == 0) {
-		rc = posix_spawnp(&pid, bin, NULL, &attr, args, environ);
+		rc = posix_spawnp(&pid, executable, NULL, &attr, args, environ);
+		if (executable[0] == '/' &&
+			(rc == ENOENT || rc == ENOTDIR || rc == EACCES)) {
+			executable = "sweetbg";
+			rc = posix_spawnp(
+				&pid, executable, NULL, &attr, args, environ);
+		}
 	}
 	posix_spawnattr_destroy(&attr);
 	if (rc != 0) {
-		fprintf(stderr, "sweetbgd: cannot spawn %s: %s\n", bin,
+		fprintf(stderr, "sweetbgd: cannot spawn %s: %s\n", executable,
 			strerror(rc));
 	}
 }
